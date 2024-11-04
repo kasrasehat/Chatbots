@@ -7,18 +7,19 @@ from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.docstore.document import Document
-from langchain.embeddings import OpenAIEmbeddings
-from langchain.vectorstores import Chroma
+from langchain_community.embeddings import OpenAIEmbeddings
+from langchain_community.vectorstores import Chroma
 import hashlib
 from openai import OpenAI
 
 # Define the WebDataExtractor class
 class WebDataExtractor:
-    def __init__(self, base_url, max_depth=2):
+    def __init__(self, base_url, max_depth=2, max_url=10):
         self.base_url = base_url
         self.max_depth = max_depth
         self.visited_urls = set()
         self.extracted_data = []
+        self.max_url = max_url
 
     def is_valid_url(self, url):
         # Check if URL is in the same domain as the base URL
@@ -63,7 +64,7 @@ class WebDataExtractor:
         return None
 
     def crawl(self, url, depth=0):
-        if url in self.visited_urls or depth > self.max_depth:
+        if (url in self.visited_urls or depth > self.max_depth or len(self.visited_urls) >= self.max_url):
             return
         self.visited_urls.add(url)
 
@@ -72,7 +73,7 @@ class WebDataExtractor:
         if content:
             self.extracted_data.append(content)
 
-        if depth < self.max_depth:
+        if depth <= self.max_depth:
             try:
                 response = requests.get(url, timeout=10)
                 if response.status_code == 200:
@@ -104,6 +105,7 @@ def main():
     st.sidebar.header("Configuration")
     url = st.sidebar.text_input("Enter the URL to scrape:", value="https://www.kindermann.de/en/")
     depth = st.sidebar.number_input("Enter the scraping depth:", min_value=0, max_value=10, value=0, step=1)
+    max_url = st.sidebar.number_input("Enter the maximum number of urls to be scraped:", min_value=10, max_value=1000, value=10, step=10)
 
     # Initialize 'vectordb' in 'st.session_state' if not already
     if 'vectordb' not in st.session_state:
@@ -126,7 +128,7 @@ def main():
             else:
                 st.info(f"No existing data found for {url} at depth {depth}. Starting extraction...")
                 # Initialize the extractor
-                extractor = WebDataExtractor(url, max_depth=depth)
+                extractor = WebDataExtractor(url, max_depth=depth, max_url=max_url)
                 extractor.start_crawling()
 
                 # Get the extracted data
