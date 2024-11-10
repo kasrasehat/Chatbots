@@ -19,10 +19,17 @@ loader = GenericLoader(
 docs = loader.load()
 print(docs[0].page_content[:300])
 
+# urls=["https://www.youtube.com/watch?v=w55C8cLWz74", "https://www.youtube.com/watch?v=w55C8cLWz74"]
+# from langchain_community.document_loaders import UnstructuredURLLoader
+# loader = UnstructuredURLLoader(urls, save_dir)
+# data = loader.load()
+
+
 
 loader = WebBaseLoader("https://github.com/kasrasehat/YOLOv8_customize/blob/master/README.md")
 docs = loader.load()
 print(docs[0].page_content)
+
 loader = NotionDirectoryLoader("docs/Notion_DB")
 docs = loader.load()
 print(docs[0].page_content)
