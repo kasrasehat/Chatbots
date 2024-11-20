@@ -227,20 +227,21 @@ def get_demo():
         gr.Markdown("<h1 style='text-align: center;'>AI Chatbot to interact with Website and PDF</h1>")
 
         # Configuration Inputs
-        with gr.Column():
-            url_input = gr.Textbox(label="Enter the URL to scrape:")
-            depth_slider = gr.Slider(0, 10, step=1, label="Enter the scraping depth:", value=1)
-            max_url_slider = gr.Slider(1, 1000, step=1, label="Enter the maximum number of URLs to crawl:", value=10)
-            language_radio = gr.Radio(["English", "German"], label="Select Language:", value="English")
-            uploaded_files = gr.File(label="Upload PDF files", file_count="multiple", type="filepath")
-            process_button = gr.Button("Process")
-            processing_status = gr.Markdown("<p style='text-align: center;'>Click 'Process' to start.</p>")
+        with gr.Row():
+            with gr.Column():
+                url_input = gr.Textbox(label="Enter the URL to scrape:")
+                depth_slider = gr.Slider(0, 10, step=1, label="Enter the scraping depth:", value=1)
+                max_url_slider = gr.Slider(1, 1000, step=1, label="Enter the maximum number of URLs to crawl:", value=10)
+                language_radio = gr.Radio(["English", "German"], label="Select Language:", value="English")
+                uploaded_files = gr.File(label="Upload PDF files", file_count="multiple", type="filepath")
+                process_button = gr.Button("Process")
+                processing_status = gr.Markdown("<p style='text-align: center;'>Click 'Process' to start.</p>")
 
-        # Chat Interface
-        with gr.Column():
-            user_input = gr.Textbox(label="Your question:", placeholder="Type your question here...", interactive=False)
-            chat_output = gr.Textbox(label="Chatbot Response", placeholder="Chatbot will respond here...", interactive=False)
-            send_button = gr.Button("Send", interactive=False)
+            # Chat Interface
+            with gr.Column():
+                user_input = gr.Textbox(label="Your question:", placeholder="Type your question here...", interactive=False)
+                chat_output = gr.Textbox(label="Chatbot Response", placeholder="Chatbot will respond here...", interactive=False)
+                send_button = gr.Button("Send", interactive=False)
 
         # State to hold the vector database
         vectordb_state = gr.State()
@@ -286,4 +287,4 @@ def get_demo():
 
 if __name__ == "__main__":
     demo = get_demo()
-    demo.launch(server_name="0.0.0.0", server_port=8900)
+    demo.launch(server_name="0.0.0.0", server_port=8700)
