@@ -179,7 +179,7 @@ def initialize_data(url, depth, max_url, language, uploaded_files):
                 status_message += f"<p style='text-align: center;'>Processing PDF: {file.name}</p>"
                 pdf_text = process_pdf(file)
                 pdf_content = {'title': file.name, 'full_text': pdf_text}
-                WebDataExtractor.process_and_store_content(pdf_content, vectordb, source_name=file.name)
+                WebDataExtractor.process_and_store_content(pdf_content, vectordb, source_name=file.name.split('/')[-1])
         
         status_message += "<p style='text-align: center;'>Data extraction and processing completed.</p>"
 
