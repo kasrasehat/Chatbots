@@ -15,7 +15,7 @@ class AgentState(TypedDict):
 
 # Define tools for the flow
 @tool
-def ask_email(args=None):
+def ask_email():
     """
     This tool prompts the user to provide their email address.
     """
@@ -62,21 +62,22 @@ def verify_email(code):
 @tool
 def ask_password(args=None):
     """
-    This tool prompts the user to enter their new password.
+    This tool prompts the user to enter their new password for first time.
     """
-    return "Please type your new password."
+    return "Please type your new password for first time."
 
 @tool
 def retype_password(args=None):
     """
-    This tool prompts the user to retype their new password for confirmation.
+    This tool prompts the user to retype password provided earlier for second time for confirmation.
+    It has to be called immediately after ask_password().
     """
-    return "Please retype your new password for confirmation."
+    return "Please retype your password for confirmation."
 
 @tool
 def conform_passwords(state: AgentState):
     """
-    This tool confirms that both passwords are the same.
+    This tool confirms that both passwords requested from user are identical.
     It uses the last two human messages from the agent state.
     Args:
         state (AgentState): The current state of the agent containing messages.
@@ -121,7 +122,7 @@ class Agent:
         messages = state['messages']
         if self.system:
             messages = [SystemMessage(content=self.system)] + messages
-        message = self.model.invoke(messages)
+            message = self.model.invoke(messages)
         return {'messages': [message]}
 
     def exists_action(self, state: AgentState):
@@ -135,10 +136,7 @@ class Agent:
             tool_name = t['name']
             tool_args = t['args']
             print(f"Calling: {tool_name} with args: {tool_args}")
-            if tool_name == "conform_passwords":
-                result = self.tools[tool_name](state)
-            else:
-                result = self.tools[tool_name](*tool_args if isinstance(tool_args, list) else [tool_args])
+            result = self.tools[tool_name](*tool_args if isinstance(tool_args, list) else [tool_args])
             results.append(ToolMessage(tool_call_id=t['id'], name=tool_name, content=str(result)))
         print("Back to the model!")
         return {'messages': results}
@@ -146,11 +144,12 @@ class Agent:
 def chat_interface(user_input, history):
     if not history:
         history = []
-    messages = [HumanMessage(content=user_input)]
+    messages = []
     for h in history:
         messages.append(HumanMessage(content=h[0]))
         messages.append(AIMessage(content=h[1]))
     
+    messages = messages + [HumanMessage(content=user_input)]
     with SqliteSaver.from_conn_string(":memory:") as memory:
         abot = Agent(model, tools, checkpointer=memory, system=prompt)
         result = abot.graph.invoke({"messages": messages}, {"configurable": {"thread_id": "1"}})
@@ -160,25 +159,25 @@ def chat_interface(user_input, history):
 
 if __name__ == "__main__":
 
-    prompt = """You are a smart assistant tasked with guiding the user through changing their password. 
-You have the following tools at your disposal:
-1. ask_email: Prompt the user to provide their email address.
-2. check_email_format: Verify if the provided email address is valid.
-3. send_code: Send a verification code to the verified email address.
-4. verify_email: Verify the code provided by the user.
-5. ask_password: Prompt the user to provide a new password.
-6. retype_password: Ask the user to retype their new password for confirmation.
-7. conform_passwords: Check if the two passwords match.
-8. record_password: Record the new password and finalize the process.
+    prompt = """
+                You are a smart assistant tasked with guiding the user through changing their password, if they want. 
+                    You have the following tools at your disposal:
+                        1. ask_email: Prompt the user to provide their email address.
+                        2. check_email_format: Verify if the provided email address format is valid.
+                        3. send_code: Send a verification code to the format-verified email address.
+                        4. verify_email: check the code provided by the user is same as sent code to email.
+                        5. ask_password: Ask the user to provide a new password for first time.
+                        6. retype_password: Ask the user to retype new password for second time for confirmation.
+                        7. conform_passwords: Check if the two passwords match.
+                        8. record_password: Record the new password and finalize the process.
 
-the order of these tools is important. 
-When appropriate, call these tools to proceed through the steps.
-Guide the user step-by-step until the password change process is completed."""
+                    the order of these tools is important. 
+                    When appropriate, call these tools to proceed through the steps.
+                    Guide the user step-by-step until the password change process is completed.
+                    if user provides wrong answer ask 2 times again. if he can not provide right answer, return to the first step which is asking for email address.
+                    """
 
     model = ChatOpenAI(model="gpt-4o-2024-08-06")
     tools = [ask_email, check_email_format, send_code, verify_email, ask_password, retype_password, conform_passwords, record_password]
 
-    with SqliteSaver.from_conn_string(":memory:") as memory:
-        abot = Agent(model, tools, checkpointer=memory, system=prompt)
-
-    gr.Interface(fn=chat_interface, inputs=["text", "state"], outputs=["chatbot", "state"], live=False).launch(server_name="0.0.0.0", server_port=8916)
+    gr.Interface(fn=chat_interface, inputs=["text", "state"], outputs=["chatbot", "state"], live=False).launch(server_name="0.0.0.0", server_port=8913)
