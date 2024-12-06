@@ -215,7 +215,8 @@ class Agent:
         if len(filtered_docs)==0:
 
             # Step 1. Instantiating your TavilyClient
-            tavily_client = TavilyClient(api_key="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")
+            tavily_client = TavilyClient(api_key=os.getenv("OPENAI_API_KEY"))
+            # "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")
 
             # Step 2. Executing a context search query
             context = tavily_client.get_search_context(query=self.user_input)
