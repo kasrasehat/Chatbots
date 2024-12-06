@@ -67,10 +67,24 @@ if __name__ == "__main__":
         messages = [HumanMessage(content="What is the weather in sf?")]
 
         # Now use the graph stream while the SqliteSaver connection is still open
-        for event in abot.graph.stream({"messages": messages}, {"configurable": {"thread_id": "1"}}):
-            for v in event.values():
-                print(v['messages'])
+        # for event in abot.graph.stream({"messages": messages}, {"configurable": {"thread_id": "1"}}):
+        #     for v in event.values():
+        #         print(v['messages'])
+                
+        print('#####################################################################################')        
+        result = abot.graph.invoke({"messages": messages}, {"configurable": {"thread_id": "1"}})
+        print(result['messages'][-1].content)    
+
+
+
+        messages = [HumanMessage(content="What about humidity?")]
+
+        # Now use the graph stream while the SqliteSaver connection is still open
+        # for event in abot.graph.stream({"messages": messages}, {"configurable": {"thread_id": "1"}}):
+        #     for v in event.values():
+        #         print(v['messages'])
                 
         print('#####################################################################################')        
         result = abot.graph.invoke({"messages": messages}, {"configurable": {"thread_id": "1"}})
         print(result['messages'][-1].content)        
+            
