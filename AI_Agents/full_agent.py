@@ -189,7 +189,7 @@ class Agent:
     
     def call_rag(self, state: AgentState):
         
-        similarity_threshold = 0.65  # Set a value between 0 and 1
+        similarity_threshold = 0.5  # Set a value between 0 and 1
 
         # Perform the initial search to get documents (you can still use max_marginal_relevance_search)
         docs = self.vectordb.max_marginal_relevance_search(self.user_input, k=6, fetch_k=8)
@@ -215,7 +215,7 @@ class Agent:
         if len(filtered_docs)==0:
 
             # Step 1. Instantiating your TavilyClient
-            tavily_client = TavilyClient(api_key=os.getenv("OPENAI_API_KEY"))
+            tavily_client = TavilyClient(api_key="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")
             # "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")
 
             # Step 2. Executing a context search query
@@ -252,11 +252,9 @@ class Agent:
 
             conversation = [{"role": "system", "content": system_msg}]
             context = "\n\n".join([f"{doc.page_content}\nSource URL: {doc.metadata.get('url', '')}" for doc in docs])
-            messages = conversation + [{"role": "user", "content": f"Context:\n{context}\n\nQuestion: {user_input}"}]
+            messages = conversation + [{"role": "user", "content": f"Context:\n{context}\n\nQuestion: {self.user_input}"}]
 
-            response = self.model_rag.invoke(
-                messages=messages
-                )
+            response = self.model_rag.invoke(messages)
             
             tool_calls = state['messages'][-1].tool_calls
             t = tool_calls[0]
@@ -264,7 +262,7 @@ class Agent:
             tool_args = t['args']
             results = []
             print(f"Calling: RAG system with args: {self.user_input}")
-            result = response.choices[0].message.content
+            result = response
             results.append(ToolMessage(tool_call_id=t['id'], name=tool_name, content=str(result)))
             print("Back to the model!")
             return {'messages': results}
