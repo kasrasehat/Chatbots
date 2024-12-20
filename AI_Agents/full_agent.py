@@ -471,7 +471,9 @@ def get_response(user_input, vectordb, language, state):
                     if user provides wrong answer ask 2 times again. if he can not provide right answer, return to the first step which is asking for email address.
              """
 
-    model = ChatOpenAI(model="gpt-4o-2024-08-06")
+    model = ChatOpenAI(model="gpt-4o-2024-08-06", 
+                       temperature=0, 
+                       api_key="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")
     tools = [ask_email, check_email_format, send_code, verify_email, ask_password, retype_password, conform_passwords, record_password, data_retriever]
 
     # messages = conversation_history + [HumanMessage(content=user_input)]
