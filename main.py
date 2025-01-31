@@ -6,7 +6,7 @@ api_key = os.getenv("OPENAI_API_KEY")
 if not api_key:
     print("error: API key not found in environment variables")
 
-chatbot = OpenAI(api_key=api_key)
+chatbot = OpenAI(api_key="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")
 # Initialize the system message for the OpenAI API
 system_msg = ""
 # Set up the message to send to OpenAI
@@ -35,10 +35,11 @@ def chat():
     # Call OpenAI API to generate structured resume information
     while True:
         user_input = input("you: ")
-        if user_input == "exit":
+        if user_input in ["exit", "quit"]:
             print("Chatbot: Goodbye!")
             break
         response = get_chatbot_response(user_input)
+        print(f"chatbot: {response}")
 
 
 if __name__ == "__main__":

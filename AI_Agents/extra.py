@@ -1,20 +1,28 @@
-import http.client
+import requests
 import json
 
-conn = http.client.HTTPSConnection("dev-hiring-candidate.berryonmars.com")
+url = "https://dev-hiring-candidate.berryonmars.com/Admin/candidate/GetAnonimousByCustomFieldList"
+
 payload = json.dumps([
   {
-    "fieldName": "FirstName",
-    "fieldValue": "kasra",
+    "fieldName": "Location.City",
+    "fieldValue": "Berlin",
     "logicalOp": 0,
-    "comparisonOp": 5
+    "comparisonOp": 0
+  },
+  {
+    "fieldName": "SalaryFrom",
+    "fieldValue": "2000",
+    "logicalOp": 0,
+    "comparisonOp": 3
   }
 ])
 headers = {
   'accept': '*/*',
+  'Authorization': 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJGREFSeFRVVHpnX1BBRFkwcUZ3bS1iME5lTzNSZGI0ckwxZHk4YjZvaVNJIn0.eyJleHAiOjE3MzgzMjgyNDUsImlhdCI6MTczODMyNzk0NSwiYXV0aF90aW1lIjoxNzM4MzI3NzA5LCJqdGkiOiI2MGEwZDVjYS1iZDc0LTRjMDEtODc4Ny1jODBlMzQwN2FkZDEiLCJpc3MiOiJodHRwczovL2Rldi1rZXljbG9hay5iZXJyeW9ubWFycy5jb20vcmVhbG1zL3JlY3J1aXRpbmctZGV2IiwiYXVkIjoiYWNjb3VudCIsInN1YiI6ImYzMjU1ZTM1LWM1ODctNDM0ZS05ZTcwLWE4Yjg3OGM2OTM4MSIsInR5cCI6IkJlYXJlciIsImF6cCI6ImRhc2hib2FyZCIsInNpZCI6IjIwNWRhNjEwLTA3ZTAtNDE4OC1hMzIzLTM2N2ZlZDU5MWFmNCIsImFjciI6IjAiLCJhbGxvd2VkLW9yaWdpbnMiOlsiaHR0cHM6Ly9sb2NhbGhvc3Q6MzAwMCIsImh0dHBzOi8vZGV2ZWxvcC1hZG1pbi1oaXJpbmcuYmVycnlvbm1hcnMuY29tIiwiaHR0cHM6Ly9kZXZlbG9wLWhpcmluZy5iZXJyeW9ubWFycy5jb20iXSwicmVhbG1fYWNjZXNzIjp7InJvbGVzIjpbInN1cGVyX2FkbWluIiwiZGVmYXVsdC1yb2xlcy1yZWNydWl0aW5nLWRldiIsIm9mZmxpbmVfYWNjZXNzIiwidW1hX2F1dGhvcml6YXRpb24iXX0sInJlc291cmNlX2FjY2VzcyI6eyJhY2NvdW50Ijp7InJvbGVzIjpbIm1hbmFnZS1hY2NvdW50IiwibWFuYWdlLWFjY291bnQtbGlua3MiLCJkZWxldGUtYWNjb3VudCIsInZpZXctcHJvZmlsZSJdfX0sInNjb3BlIjoib3BlbmlkIHByb2ZpbGUgZW1haWwiLCJlbWFpbF92ZXJpZmllZCI6dHJ1ZSwibmFtZSI6Ik1heCBTaGFoZG9vc3QiLCJib21Vc2VySWQiOiI2NzY5MjA0OGQ4MDA0NzEwYWNmNDI3ZWMiLCJwcmVmZXJyZWRfdXNlcm5hbWUiOiJ0YXRzaGFoZG9vc3RAZ21haWwuY29tIiwiZ2l2ZW5fbmFtZSI6Ik1heCIsImxvY2FsZSI6ImVuIiwiZmFtaWx5X25hbWUiOiJTaGFoZG9vc3QiLCJib21Vc2VyUm9sZSI6ImNhbmRpZGF0ZSIsImVtYWlsIjoidGF0c2hhaGRvb3N0QGdtYWlsLmNvbSJ9.NG7OkS6Fdi4MHMzbvdamb_owz5QQkF8MDCJ_ys6D7BEYQMYsvSeD4s9XSM5CbeOGVkzv-1mOxDxFoj3HH9CWHP7Nru-xTZnksBjG3gOabvXp2ilppHofq43XOAA3Pqxj8HN9nA6xa11WPiTUltfz2m5TJb8i_EglIdw5ZHAA3GFvT2Xp_QT0gp1qxMMHkeaIQuUAgP009S5J-k59F6iOFQL6F7orPjLyLdSEEVtIZk6t0xNWzWjc7LvU29rDZq-PB-BtcOFtmnU3cvGS-OdvyaBT_X0I12akvSi9UhZLIXQzopyV2-9fpxGxAUJJgNCpEHi20v-HlpA8lYAVeIdWkQ',
   'Content-Type': 'application/json'
 }
-conn.request("POST", "/Admin/candidate/GetAnonimousByCustomFieldList?skip=0&take=10", payload, headers)
-res = conn.getresponse()
-data = res.read()
-print(data.decode("utf-8"))
+
+response = requests.request("POST", url, headers=headers, data=payload)
+
+print(response.text)

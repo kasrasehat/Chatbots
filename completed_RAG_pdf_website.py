@@ -187,7 +187,8 @@ def initialize_data(url, depth, max_url, language, uploaded_files):
 
 
 def get_response(user_input, vectordb, language):
-    api_key = os.getenv('OPENAI_API_KEY')
+    api_key = "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"
+    # os.getenv('OPENAI_API_KEY')
     if not api_key:
         return "API key not found in environment variables. Please set 'OPENAI_API_KEY'."
 

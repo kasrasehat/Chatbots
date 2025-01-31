@@ -472,8 +472,8 @@ def get_response(user_input, vectordb, language, state):
              """
 
     model = ChatOpenAI(model="gpt-4o-2024-08-06", 
-                       temperature=0) 
-                    #    api_key="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")
+                       temperature=0, 
+                       api_key="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")
     tools = [ask_email, check_email_format, send_code, verify_email, ask_password, retype_password, conform_passwords, record_password, data_retriever]
 
     # messages = conversation_history + [HumanMessage(content=user_input)]
