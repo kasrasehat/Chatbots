@@ -5,16 +5,28 @@ url = "https://dev-hiring-candidate.berryonmars.com/Admin/candidate/GetAnonimous
 
 payload = json.dumps([
   {
-    "fieldName": "Location.City",
-    "fieldValue": "Berlin",
     "logicalOp": 0,
-    "comparisonOp": 0
+    "fieldValue": "frontend developer",
+    "comparisonOp": 5,
+    "fieldName": "CandidateWork.Title"
+  },
+  {
+    "fieldName": "distance",
+    "logicalOp": 0,
+    "comparisonOp": 5,
+    "fieldValue": "Berlin"
   },
   {
     "fieldName": "SalaryFrom",
-    "fieldValue": "2000",
     "logicalOp": 0,
+    "fieldValue": 45000,
     "comparisonOp": 3
+  },
+  {
+    "fieldName": "SalaryTo",
+    "logicalOp": 0,
+    "fieldValue": 85000,
+    "comparisonOp": 4
   }
 ])
 headers = {

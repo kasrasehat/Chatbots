@@ -1,27 +1,18 @@
 # Use an official Python runtime as the base image
-FROM python:3.12-slim
+FROM python:3.12.3-slim
 
-# Set environment variables
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
-
-# Set the working directory in the container
+# Step 2: Set a working directory
 WORKDIR /app
 
-# Copy the requirements file into the container
-COPY requirements.txt .
-
-# Install Python dependencies
+# Step 3: Copy the requirements.txt file and install dependencies
+COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the application code into the container
-COPY . .
+# Step 4: Copy the application code into the container
+COPY . /app
 
-# Expose the port that Gradio will run on
-EXPOSE 8700
+# Step 5: Expose the port on which your app will run
+EXPOSE 8000
 
-# Set environment variables for OpenAI API key (adjust as needed)
-# ENV OPENAI_API_KEY=your_openai_api_key_here
-
-# Command to run the Gradio application
-CMD ["python", "gradio_completed_code.py"]
+# Step 6: Command to run the FastAPI application using uvicorn
+CMD ["uvicorn", "Chatbots.service-recruiter-agent:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
