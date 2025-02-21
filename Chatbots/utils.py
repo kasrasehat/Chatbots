@@ -15,7 +15,6 @@ from langchain_community.vectorstores import Chroma
 import hashlib
 import sys
 from sentence_transformers import SentenceTransformer
-import fitz  # PyMuPDF for PDF processing
 import time
 from langgraph.graph import StateGraph, END
 from typing import TypedDict, Annotated, Required

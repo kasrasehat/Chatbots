@@ -15,7 +15,6 @@ from langchain_community.vectorstores import Chroma
 import hashlib
 import sys
 from sentence_transformers import SentenceTransformer
-import fitz  # PyMuPDF for PDF processing
 import time
 from langgraph.graph import StateGraph, END
 from typing import TypedDict, Annotated, Required
@@ -245,5 +244,5 @@ async def recruiting_endpoint(
 
 if __name__ == "__main__":
     # Start the FastAPI server
-    uvicorn.run(app, host="127.0.0.1", port=8012)
+    uvicorn.run(app, host="0.0.0.0", port=8000)
     
