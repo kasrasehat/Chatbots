@@ -1,0 +1,129 @@
+stages:
+  - build
+  - deploy
+
+# Common Variables
+variables:
+  CI_PROJECT_NAME: ai-chatbots
+  HELM_CHART_PATH: deploy-repo/charts/ai-chatbots
+  DEPLOY_REPO_URL: https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.berryonmars.com/recruiting_platform/deploy-repo.git
+  GITOPS_IMAGE: harbor.berryonmars.com/devops/alpine-gitops:latest
+
+# Environment-Specific Variables
+.variables_develop:
+  variables:
+    BRANCH_NAME: develop
+    IMAGE_NAME: harbor.berryonmars.com/$CI_PROJECT_NAME/develop
+    IMAGE_TAG: $CI_COMMIT_SHA
+    RELEASE_NAME: develop-$CI_PROJECT_NAME
+    CI_PROJECT_NAMESPACE: dev-recruiting
+    VALUES_FILE_PATH: charts/ai-chatbots/aichatbots-develop.yaml
+
+.variables_stage:
+  variables:
+    BRANCH_NAME: stage
+    IMAGE_NAME: harbor.berryonmars.com/$CI_PROJECT_NAME/stage
+    IMAGE_TAG: $CI_COMMIT_SHA
+    RELEASE_NAME: stage-$CI_PROJECT_NAME
+    CI_PROJECT_NAMESPACE: stg-recruiting
+    VALUES_FILE_PATH: charts/ai-chatbots/ai-chatbots-stage.yaml
+
+.variables_prod:
+  variables:
+    BRANCH_NAME: main
+    IMAGE_NAME: harbor.berryonmars.com/$CI_PROJECT_NAME/main
+    IMAGE_TAG: $CI_COMMIT_SHA
+    RELEASE_NAME: $CI_PROJECT_NAME
+    CI_PROJECT_NAMESPACE: recruiting
+    VALUES_FILE_PATH: charts/ai-chatbots/ai-chatbots-prod.yaml
+
+# Templates for Reusability
+.build_template: &build_template
+  stage: build
+  image: $GITOPS_IMAGE
+  script:
+    - echo "$HARBOR_PASSWORD" | docker login -u "$HARBOR_USER" --password-stdin $DOCKER_REGISTRY
+    - docker build -t $IMAGE_NAME:$IMAGE_TAG .
+    - docker push $IMAGE_NAME:$IMAGE_TAG
+
+.deploy_script: &deploy_script
+  - git config --global user.email "devops@berryonmars.com"
+  - git config --global user.name "deployer"
+  - git clone https://deployer:${DEPLOY_REPO_TOKEN}@gitlab.berryonmars.com/recruiting_platform/deploy-repo.git
+  - cd deploy-repo
+  - yq eval '.image.repository = "'$IMAGE_NAME'" | .image.tag = "'$IMAGE_TAG'"' -i $VALUES_FILE_PATH
+  - git add $VALUES_FILE_PATH
+  - git commit -m "Update image to $IMAGE_NAME:$IMAGE_TAG"
+  - git push origin main
+
+.deploy_job_template: &deploy_job_template
+  stage: deploy
+  image: $GITOPS_IMAGE
+  script: *deploy_script
+
+# Build Jobs
+build_develop:
+  <<: *build_template
+  extends: .variables_develop
+  variables:
+    DOCKER_REGISTRY: harbor.berryonmars.com
+  only:
+    - develop
+  tags:
+    - developers
+
+build_stage:
+  <<: *build_template
+  extends: .variables_stage
+  variables:
+    DOCKER_REGISTRY: harbor.berryonmars.com
+  only:
+    - stage
+  tags:
+    - developers
+
+build_prod:
+  <<: *build_template
+  extends: .variables_prod
+  variables:
+    DOCKER_REGISTRY: harbor.berryonmars.com
+  only:
+    - master
+  tags:
+    - deployer
+
+# Deploy Jobs
+deploy_develop:
+  before_script:
+    - mkdir -p ~/.kube
+    - cp "$DEV_KUBECONFIG" ~/.kube/config
+  <<: *deploy_job_template
+  extends: .variables_develop
+  only:
+    - develop
+  tags:
+    - developers
+
+deploy_stage:
+  before_script:
+    - mkdir -p ~/.kube
+    - cp "$STAGE_KUBECONFIG" ~/.kube/config
+  <<: *deploy_job_template
+  extends: .variables_stage
+  only:
+    - stage
+  tags:
+    - developers
+
+deploy_prod:
+  before_script:
+    - mkdir -p ~/.kube
+    - cp "$PROD_KUBECONFIG" ~/.kube/config
+  <<: *deploy_job_template
+  extends: .variables_prod
+  when: manual
+  allow_failure: false
+  only:
+    - master
+  tags:
+    - deployer
