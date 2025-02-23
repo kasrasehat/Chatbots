@@ -431,5 +431,5 @@ async def recruiting_endpoint(
 
 if __name__ == "__main__":
     # Start the FastAPI server
-    uvicorn.run(app, host="127.0.0.1", port=7000)
+    uvicorn.run(app, host="127.0.0.1", port=8080)
     
