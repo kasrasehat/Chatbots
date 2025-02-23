@@ -15,4 +15,4 @@ COPY . /app
 EXPOSE 8000
 
 # Step 6: Command to run the FastAPI application using uvicorn
-CMD ["uvicorn", "Chatbot.service-recruiter-agent:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+CMD ["uvicorn", "app.service_recruiter_agent:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]

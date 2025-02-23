@@ -1,0 +1,30 @@
+# Ignore compiled Python files
+__pycache__/
+*.pyc
+*.pyo
+
+# Ignore virtual environment (if using one)
+venv/
+.env/
+*.env
+
+# Ignore logs and cache files
+*.log
+*.sqlite3
+db.sqlite3
+
+# Ignore system-related files
+.DS_Store
+Thumbs.db
+
+# Ignore Git and IDE files
+.git/
+.gitignore
+*.swp
+*.swo
+.vscode/
+.idea/
+
+# Ignore Docker build artifacts
+Dockerfile
+docker-compose.yml
