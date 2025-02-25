@@ -73,7 +73,7 @@ def search_candidate(criteria=None):
         - Requires a valid API authentication token in the `Authorization` header.
         - Ensure `criteria` follows the API's expected format.
     """
-    url = "https://candidate-candidate:8080/admin/candidate/GetAnonimousByCustomFieldList?skip=0&take=5"
+    url = "http://candidate-candidate:8080/admin/candidate/GetAnonimousByCustomFieldList?skip=0&take=5"
 
     payload = json.dumps([
         {
