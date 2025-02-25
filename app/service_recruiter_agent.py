@@ -44,7 +44,6 @@ import logging
 
 # Configure logging
 logging.basicConfig(
-    filename="requests.log",  # Save logs to a file
     level=logging.INFO,  # Log INFO and higher severity levels
     format="%(asctime)s - %(levelname)s - %(message)s",
 )
