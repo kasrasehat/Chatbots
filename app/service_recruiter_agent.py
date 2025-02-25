@@ -39,7 +39,15 @@ import re
 # from utilsss import Agent, AgentState, search_candidate
 from typing import Dict, Any, List
 from langchain_core.tools import tool 
+import traceback
+import logging
 
+# Configure logging
+logging.basicConfig(
+    filename="requests.log",  # Save logs to a file
+    level=logging.INFO,  # Log INFO and higher severity levels
+    format="%(asctime)s - %(levelname)s - %(message)s",
+)
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -155,31 +163,32 @@ def search_candidate(criteria=None):
     url = "https://candidate-candidate:8080/admin/candidate/GetAnonimousByCustomFieldList?skip=0&take=5"
 
     payload = json.dumps([
-  {
-    "logicalOp": 0,
-    "fieldValue": criteria['job_title'],
-    "comparisonOp": 5,
-    "fieldName": "CandidateWork.Title"
-  },
-  {
-    "fieldName": "distance",
-    "logicalOp": 0,
-    "comparisonOp": 5,
-    "fieldValue": criteria['city']
-  },
-  {
-    "fieldName": "SalaryFrom",
-    "logicalOp": 0,
-    "fieldValue": int(criteria['min_salary']),
-    "comparisonOp": 3
-  },
-  {
-    "fieldName": "SalaryTo",
-    "logicalOp": 0,
-    "fieldValue": int(criteria['max_salary']),
-    "comparisonOp": 4
-  }
-])
+        {
+            "logicalOp": 0,
+            "fieldValue": criteria['job_title'],
+            "comparisonOp": 5,
+            "fieldName": "CandidateWork.Title"
+        },
+        {
+            "fieldName": "distance",
+            "logicalOp": 0,
+            "comparisonOp": 5,
+            "fieldValue": criteria['city']
+        },
+        {
+            "fieldName": "SalaryFrom",
+            "logicalOp": 0,
+            "fieldValue": int(criteria['min_salary']),
+            "comparisonOp": 3
+        },
+        {
+            "fieldName": "SalaryTo",
+            "logicalOp": 0,
+            "fieldValue": int(criteria['max_salary']),
+            "comparisonOp": 4
+        }
+    ])
+
     headers = {
         'accept': '*/*',
         'Authorization': 'Bearer',  # Replace with a valid token
@@ -187,11 +196,26 @@ def search_candidate(criteria=None):
     }
 
     try:
+        # Log request details
+        logging.info(f"Sending POST request to URL: {url}")
+        logging.info(f"Headers: {json.dumps(headers, indent=2)}")
+        logging.info(f"Payload: {payload}")
+
         response = requests.post(url, headers=headers, data=payload)
+
+        # Log response details
+        logging.info(f"Received response - Status Code: {response.status_code}")
+        logging.info(f"Response Body: {response.text[:500]}")  # Log first 500 chars of response
+
         response.raise_for_status()  # Raise HTTPError for bad responses (4xx and 5xx)
+
         return response.text  # Return parsed JSON response
+
     except requests.exceptions.RequestException as e:
-        return f"Error occurred: {str(e)}"
+        error_message = f"Error occurred: {str(e)}"
+        logging.error(error_message)
+        logging.error(traceback.format_exc())  # Log full traceback
+        return error_message
 
     
 class Agent:
