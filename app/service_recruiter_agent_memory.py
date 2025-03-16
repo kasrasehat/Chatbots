@@ -41,6 +41,9 @@ from typing import Dict, Any, List
 from langchain_core.tools import tool 
 import traceback
 import logging
+import redis
+
+redis_client = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
 
 # Configure logging
 logging.basicConfig(
@@ -57,28 +60,7 @@ app = FastAPI(
 
 # 🔹 Detect and Serialize Message Type (Ensures No Data Loss)
 def serialize_message(message: Any) -> Dict[str, Any]:
-    base_data = {
-        "type": message.__class__.__name__,
-        "content": message.content,
-        "additional_kwargs": getattr(message, "additional_kwargs", {}),
-        "response_metadata": getattr(message, "response_metadata", {}),
-    }
-
-    # Handle AIMessage-specific fields
-    if isinstance(message, AIMessage):
-        base_data.update({
-            "id": getattr(message, "id", None),
-            "usage_metadata": getattr(message, "usage_metadata", {}),
-            "tool_calls": getattr(message, "tool_calls", []),
-        })
-
-    # Handle ToolMessage-specific fields
-    elif isinstance(message, ToolMessage):
-        base_data.update({
-            "tool_call_id": message.tool_call_id
-        })
-
-    return base_data
+   return json.dumps(messages_to_dict([message]))
 
 def validate_and_fix_usage_metadata(usage_metadata):
     """ Ensure `usage_metadata` contains required fields with default values. """
@@ -93,38 +75,7 @@ def validate_and_fix_usage_metadata(usage_metadata):
 
 # 🔹 Detect and Deserialize Message Type (Ensures No Data Loss)
 def deserialize_message(message_json: Dict[str, Any]) -> Any:
-    message_type = message_json["type"]
-
-    # Deserialize AIMessage
-    if message_type == "AIMessage":
-        return AIMessage(
-        content=message_json["content"],
-        additional_kwargs=message_json.get("additional_kwargs", {}),
-        response_metadata=message_json.get("response_metadata", {}),
-        id=message_json.get("id", ""),
-        tool_calls=message_json.get("tool_calls", []),
-        usage_metadata=validate_and_fix_usage_metadata(message_json.get("usage_metadata", {}))
-    )
-
-    # Deserialize HumanMessage
-    elif message_type == "HumanMessage":
-        return HumanMessage(
-            content=message_json["content"],
-            additional_kwargs=message_json.get("additional_kwargs", {}),
-            response_metadata=message_json.get("response_metadata", {})
-        )
-
-    # Deserialize ToolMessage
-    elif message_type == "ToolMessage":
-        return ToolMessage(
-            content=message_json["content"],
-            additional_kwargs= message_json.get("additional_kwargs", ""),
-            response_metadata=message_json.get("response_metadata", "") ,
-            tool_call_id=message_json.get("tool_call_id", "")
-        )
-
-    else:
-        raise ValueError(f"Unknown message type: {message_type}")
+    return messages_from_dict(json.loads(message_json))
 
 class AgentState(TypedDict):
     messages: Annotated[list[AnyMessage], operator.add]
@@ -162,6 +113,7 @@ def search_candidate(criteria=None):
         - Ensure `criteria` follows the API's expected format.
     """
     url = "http://candidate-candidate:8080/admin/candidate/GetAnonimousByCustomFieldList?skip=0&take=5"
+    # "https://dev-hiring-candidate.berryonmars.com/Admin/candidate/GetAnonimousByCustomFieldList?skip=0&take=50"
 
     payload = json.dumps([
         {
@@ -247,7 +199,7 @@ class Agent:
         if self.system:
             messages = [SystemMessage(content=self.system)] + messages
             message = self.model.invoke(messages)
-        return {'messages': [message]}
+        return {'messages': [message], 'flow_state': 'start'}
 
 
     def exists_action(self, state: AgentState):
@@ -325,7 +277,7 @@ class Agent:
             messages = [SystemMessage(content=system_message)] + messages
             message = self.model.invoke(messages)
             
-        return {'messages': [message]}    
+        return {'messages': [message], 'flow_state': 'candidate_retrieved'}    
 
 def get_response(state):
     # This function now has access to the full conversation history from state
@@ -407,45 +359,46 @@ def root():
 # Main chatbot endpoint
 @app.post("/recruiter")
 async def recruiting_endpoint(
-    agent_state: str = Form(...)  # Chat history as a string
+    user_message: str = Form(...),  # Chat history as a string
+    user_id: str = Form(...),  # User ID
 ):
     """
     - `agent_state`: String containing the chat history (JSON format).
     """
     try:
-        # Convert the agent_state string to a list
-        try:
-            # Fix JSON using regex
-            # Replace single quotes with double quotes to make it valid JSON
-            stringified_data = re.sub(r"(?<!\w)'(.*?)'(?!\w)", r'"\1"', agent_state)
-            agent_state = json.loads(stringified_data.replace("'", "\"") )
-        except json.JSONDecodeError:
-            raise HTTPException(status_code=400, detail="Invalid JSON format for chat history.")
+        # Check Redis for existing state
+        stored_state = redis_client.hgetall(user_id)
+        user_message = HumanMessage(content=user_message)
 
-       # Initialize an instance of AgentState
-        agent_state: AgentState = agent_state
-       # Deserialize messages, ensuring tool_calls are properly structured
-        agent_state_dict = {
-            "messages": [deserialize_message(msg) for msg in agent_state['messages']],
-            "flow_state": agent_state['flow_state']
+        if stored_state:
+            # Deserialize existing state
+            state_dict = messages_from_dict(json.loads(stored_state['messages']))
+            state_dict.append(user_message)
+            agent_state = {
+                "messages": state_dict,
+                "flow_state": stored_state["flow_state"]
+            }
+        else:
+            # Initialize new state if user does not exist
+            agent_state = {"messages": [user_message], "flow_state": "start"}
+
+
+        # Call your multi-agent system here
+        updated_agent_state = get_response(agent_state)
+
+        # Serialize new state
+        serialized_state = {
+            "messages": json.dumps(messages_to_dict(updated_agent_state["messages"])),
+            "flow_state": updated_agent_state.get("flow_state", None)
         }
-        # Send request to agent
-        updated_agent_state = get_response(agent_state_dict)
-        # Convert messages to JSON
-        final_agent_state = {
-            "messages": [serialize_message(msg) for msg in updated_agent_state["messages"]],
-            "flow_state": updated_agent_state.get("flow_state", {})
-        }
-        
-        # # Convert to Python dict
-        # try:
-        #     json_agent_state = json.loads(final_agent_state)
-        #     print("✅ Successfully loaded JSON:", json_agent_state)
-        # except json.JSONDecodeError as e:
-        #     print("❌ JSON Error:", str(e))
 
-        return JSONResponse(content=final_agent_state)
+         # Store serialized state in Redis hash
+        redis_client.hmset(user_id, serialized_state)
 
+        # Return the last generated message
+        last_message = updated_agent_state["messages"][-1].content
+        return JSONResponse(content={"user_id": user_id, "response": last_message})
+    
     except Exception as e:
         # Handle errors gracefully
         full_traceback = traceback.format_exc()

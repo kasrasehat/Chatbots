@@ -287,7 +287,7 @@ def get_response(user_input, state):
 
     model = ChatOpenAI(model="gpt-4o-2024-08-06", 
                        temperature=0, 
-                       api_key="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")
+                       api_key= os.getenv("OPENAI_API_KEY"))
     tools = [search_candidate]
 
 
