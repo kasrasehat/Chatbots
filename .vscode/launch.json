@@ -1,21 +1,16 @@
 {
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-        
         {
-            "name": "Streamlit Debug",
-            "type": "debugpy",
+            "name": "Python: Current File",
+            "type": "python",
             "request": "launch",
-            "program": "E:/codes_py/Resume-NLP-Parser/venv/Scripts/streamlit.exe", // Path to streamlit.exe in your venv
-            "args": [
-                "run",
-                "E:/codes_py/Chatbots/completed_code_v2.py" // Path to your Streamlit app (main.py)
-            ],
-            "console": "integratedTerminal", // Run in VSCode's terminal
-            "justMyCode": false, // Set this to false if you want to debug inside libraries too
-            "env": {
-                "PYTHONPATH": "E:/codes_py/Resume-NLP-Parser" // Ensure the correct Python path is used
-            }
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": false
         }
     ]
 }
