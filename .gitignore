@@ -62,7 +62,7 @@ cover/
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
-
+*.json
 # Flask stuff:
 instance/
 .webassets-cache
@@ -126,6 +126,8 @@ celerybeat.pid
 # Environments
 .env
 .venv
+.chatbot-env
+chatbot-env/
 env/
 venv/
 ENV/
