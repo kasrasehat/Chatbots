@@ -70,6 +70,7 @@ logging.basicConfig(
 )
 
 redis_client = redis.Redis(host='redis-master.tools', port=6379, db=0, decode_responses=True, password="1qaz2wsx3edc")
+# redis_client = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
 # , password='1qaz2wsx3edc'
 # Initialize FastAPI app
 app = FastAPI(
