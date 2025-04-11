@@ -37,7 +37,7 @@ import traceback
 import json
 import re
 # from utilsss import Agent, AgentState, search_candidate
-from typing import Dict, Any, List
+from typing import Dict, Any, List, TypedDict, Literal, Optional
 from langchain_core.tools import tool 
 import traceback
 import logging
@@ -54,6 +54,12 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
+import requests
+import json
+from datetime import datetime
+from datetime import datetime, timedelta
+from typing import List, Dict
+from langchain.tools import tool
 from dotenv import load_dotenv
 _ = load_dotenv('.env.dev')
 
@@ -63,8 +69,8 @@ logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s",
 )
 
-redis_client = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
-
+redis_client = redis.Redis(host='redis-master.tools', port=6379, db=0, decode_responses=True, password="1qaz2wsx3edc")
+# , password='1qaz2wsx3edc'
 # Initialize FastAPI app
 app = FastAPI(
     title="Recruiter Agent Service",
@@ -72,148 +78,241 @@ app = FastAPI(
     version="1.0.0"
 )
 
-SCOPES = ['https://www.googleapis.com/auth/calendar']
-
-def get_calendar_service():
-    """
-    Authenticate and create a Google Calendar API service instance.
-
-    Returns:
-        googleapiclient.discovery.Resource: Authenticated Google Calendar service instance.
-    """
-    creds = None
-    if os.path.exists('token.json'):
-        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
-            creds = flow.run_local_server(port=0)
-        with open('token.json', 'w') as token:
-            token.write(creds.to_json())
-    service = build('calendar', 'v3', credentials=creds)
-    return service
-
-def get_busy_times():
-    """
-    Retrieve busy time slots from the user's Google Calendar for the next 3 days.
-
-    Returns:
-        list[tuple(datetime, datetime)]: List of tuples containing start and end datetimes of busy periods.
-    """
-    service = get_calendar_service()
-    now = datetime.now(pytz.UTC).isoformat()
-    end = (datetime.now(pytz.UTC) + timedelta(days=3)).isoformat()
-
-    try:
-        events_result = service.events().list(
-            calendarId='primary',
-            timeMin=now,
-            timeMax=end,
-            singleEvents=True,
-            orderBy='startTime'
-        ).execute()
-
-        events = events_result.get('items', [])
-        busy_slots = []
-
-        for event in events:
-            start = event['start'].get('dateTime', event['start'].get('date'))
-            end = event['end'].get('dateTime', event['end'].get('date'))
-
-            if 'T' not in start:
-                start_dt = datetime.strptime(start, "%Y-%m-%d").replace(tzinfo=pytz.UTC)
-            else:
-                start_dt = datetime.fromisoformat(start)
-
-            if 'T' not in end:
-                end_dt = datetime.strptime(end, "%Y-%m-%d").replace(tzinfo=pytz.UTC)
-            else:
-                end_dt = datetime.fromisoformat(end)
-
-            busy_slots.append((start_dt, end_dt))
-
-        return busy_slots
-
-    except HttpError as e:
-        print(f"An error occurred: {e}")
-        return []
+class JobPostInput(TypedDict):
+    """Fields required to create a job post."""
+    title: str
+    requirementsText: str
+    description: str
+    salaryFrom: int
+    salaryTo: int
+    country: str
+    city: str
+    jobType: Literal["fullTime", "partTime", "internship", "contract"]
+    locationTypeEnum: Literal["remote", "onsite", "hybrid"]
+    employerId: str
 
 @tool
-def calculate_free_times():
+def job_creator(job_data: JobPostInput) -> Optional[str]:
     """
-    Calculate available 30-minute meeting slots based on busy calendar entries for the next 2 days.
+    Creates a job post using the employer's input and saves it into the job posting system.
+
+    This tool is used **after all required job posting fields are collected from the employer**.
+    It sends the data to an external job post API and receives a unique job code in response.
+
+    Required fields:
+    - title: Job title (e.g., "AI Engineer")
+    - requirementsText: Candidate requirements in text form
+    - description: Full job description
+    - salaryFrom: Minimum salary
+    - salaryTo: Maximum salary
+    - country: Country where the job is located
+    - city: City of the job
+    - jobType: Type of employment (choose from: fullTime, partTime, internship, contract)
+    - locationTypeEnum: Work mode (choose from: remote, onsite, hybrid)
+    - employerId: Email or unique ID of the employer (must not be null)
 
     Returns:
-        list[str]: Available free time slots formatted as 'YYYY-MM-DD HH:MM'.
+    - A unique job code (string) like "67f759f4d355d64f14a8cecc" on success
+    - None if the job post could not be created
     """
-    busy_slots = get_busy_times()
-    free_slots = []
+    url = "https://dev-hiring-employer.berryonmars.com/JobPost/CreateFromAI"
 
-    start_time = datetime.now(pytz.UTC).replace(minute=0, second=0, microsecond=0)
-    end_time = start_time + timedelta(days=2)
+    if not job_data.get("employerId"):
+        logging.error("❌ employerId is missing – job post cannot be created.")
+        raise ValueError("❌ employerId is required to create a job post.")
 
-    current_time = start_time
-    while current_time < end_time:
-        slot_end = current_time + timedelta(minutes=30)
-        is_free = all(not (current_time < busy_end and slot_end > busy_start)
-                      for busy_start, busy_end in busy_slots)
-        if is_free:
-            free_slots.append(current_time.strftime('%Y-%m-%d %H:%M'))
-        current_time = slot_end
-
-    return free_slots
-
-@tool
-def schedule_meeting(selected_time, email):
-    """
-    Schedule a job interview meeting with an attendee via Google Calendar.
-
-    Args:
-        selected_time (str): Chosen meeting time slot formatted as 'YYYY-MM-DD HH:MM'.
-        email (str): Attendee's email address.
-
-    Returns:
-        str: Confirmation message with a link to the scheduled calendar event.
-    """
-    service = get_calendar_service()
-
-    start_time = datetime.strptime(selected_time, '%Y-%m-%d %H:%M').replace(tzinfo=pytz.UTC)
-    end_time = start_time + timedelta(minutes=30)
-
-    email_passage = """
-    Dear Candidate,
-
-    We are excited to invite you to discuss a potential career opportunity with our company. This meeting will provide an excellent chance to explore your skills, experience, and how they align with our organization's vision and goals.
-
-    We look forward to speaking with you soon.
-
-    Best regards,
-    HR Team
-    """
-
-    event = {
-        'summary': 'Job Interview Invitation',
-        'description': email_passage.strip(),
-        'start': {'dateTime': start_time.isoformat()},
-        'end': {'dateTime': end_time.isoformat()},
-        'attendees': [{'email': email}],
-        'reminders': {'useDefault': True},
+    headers = {
+        "accept": "*/*",
+        "Content-Type": "application/json"
+        # "Authorization": "Bearer <token>"  # Uncomment if needed
     }
 
     try:
-        event_result = service.events().insert(
-            calendarId='primary',
-            body=event,
-            sendUpdates='all'
-        ).execute()
+        payload = json.dumps(job_data)
+        logging.info(f"📤 Sending job post to {url}")
+        logging.debug(f"Payload: {payload}")
 
-        return f"Meeting scheduled successfully! Event link: {event_result.get('htmlLink')}"
+        response = requests.post(url, headers=headers, data=payload)
+        response.raise_for_status()
 
-    except HttpError as e:
-        return f"An error occurred while scheduling: {e}"
+        job_code = response.text.strip().strip('"')
+        logging.info(f"✅ Job post created successfully — code: {job_code}")
+        return job_code
 
+    except requests.RequestException as e:
+        logging.error(f"❌ Request failed while creating job post: {e}")
+        return None
+    except Exception as ex:
+        logging.exception(f"❌ Unexpected error in job_creator: {ex}")
+        return None
+
+
+@tool
+def calculate_free_times() -> List[Dict[str, str]]:
+    """
+    Retrieve available time slots within the next 7 days.
+
+    It queries a date range starting from now and ending 7 days later.
+
+    Parameters:
+    ----------
+    email : str
+        The email address of the person whose calendar is being queried 
+        (e.g., r.sheshbolooki@berryonmars.com).
+
+    Returns:
+    -------
+    List[dict]
+        A list of available free time slots with:
+        {
+            "date": "YYYY-MM-DD",
+            "start_time": "HH:MM",
+            "end_time": "HH:MM"
+        }
+
+    Example:
+    --------
+    >>> get_free_time_slots("r.sheshbolooki@berryonmars.com")
+    [
+        {"date": "2025-04-01", "start_time": "09:00", "end_time": "09:30"},
+        {"date": "2025-04-01", "start_time": "09:30", "end_time": "10:00"},
+        ...
+    ]
+
+    Notes:
+    ------
+    - The function automatically sets the query range from the current datetime 
+      to 7 days ahead.
+    - Assumes the API returns results in ISO 8601 format.
+    - Returns an empty list on error or if no free slots are found.
+    """
+
+    # Set date range: today to 7 days later
+    now = datetime.utcnow()
+    start_date = now.strftime("%Y-%m-%dT%H:%M:%S")
+    end_date = (now + timedelta(days=7)).strftime("%Y-%m-%dT%H:%M:%S")
+
+    url = f"https://dev-hiring-candidate.berryonmars.com/GetFreeEvents/r.sheshbolooki@berryonmars.com/{start_date}/{end_date}"
+
+    headers = {
+        "accept": "*/*",
+        "Content-Type": "application/json"
+    }
+
+    try:
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+
+        events = json.loads(response.text)
+        free_slots = []
+
+        for event in events:
+            start_dt = datetime.fromisoformat(event["start"]["dateTime"])
+            end_dt = datetime.fromisoformat(event["end"]["dateTime"])
+
+            free_slots.append({
+                "date": start_dt.strftime("%Y-%m-%d"),
+                "start_time": start_dt.strftime("%H:%M"),
+                "end_time": end_dt.strftime("%H:%M")
+            })
+
+        return free_slots
+
+    except Exception as e:
+        print(f"❌ Failed to fetch free time slots: {e}")
+        return []
+
+@tool
+def schedule_meeting(email: str, reserved_time: str) -> Optional[str]:
+    """
+    Schedule a calendar meeting with a given attendee at a specific time.
+
+    This tool uses the recruiting meeting scheduling system to create a calendar event.
+    It receives the attendee's email and the reserved meeting time, then sends a request
+    to create an event in the system.
+
+    Parameters:
+    ----------
+    email : str
+        The email address of the attendee who will receive the calendar invite.
+    reserved_time : str
+        The meeting start and end time in ISO 8601 format (e.g., "2025-04-01T14:00:00").
+        The meeting is assumed to be 30 minutes long.
+
+    Returns:
+    -------
+    str or None
+        A success message if the meeting is scheduled successfully.
+        Returns None if the operation fails.
+
+    Example:
+    --------
+    >>> schedule_meeting("attendee@example.com", "2025-04-01T10:00:00")
+    '✅ Meeting scheduled successfully.'
+
+    Notes:
+    ------
+    - This tool assumes meetings are always 30 minutes.
+    - If the reserved_time format is invalid, or the request fails, the function returns None.
+    """
+
+    # API endpoint for scheduling
+    url = "https://dev-hiring-candidate.berryonmars.com/Calender/r.sheshbolooki@berryonmars.com/CreateEvent"
+
+    # Default meeting duration: 30 minutes
+    meeting_duration_minutes = 30
+    try:
+        from datetime import datetime, timedelta
+
+        start_time = datetime.fromisoformat(reserved_time)
+        end_time = (start_time + timedelta(minutes=meeting_duration_minutes)).isoformat()
+
+        payload = json.dumps({
+            "subject": f"Meeting with {email.split('@')[0]} from Test",
+            "body": {
+                "contentType": 1,
+                "content": "Let's have a meeting"
+            },
+            "start": {
+                "timeZone": "Asia/Tehran",
+                "dateTime": reserved_time
+            },
+            "end": {
+                "timeZone": "Asia/Tehran",
+                "dateTime": end_time
+            },
+            "location": {
+                "displayName": "Recruiting Meeting Scheduler"
+            },
+            "attendees": [
+                {
+                    "type": 0,
+                    "emailAddress": {
+                        "name": f"{email.split('@')[0]}",
+                        "address": email
+                    }
+                }
+            ],
+            "allowNewTimeProposals": True
+        })
+
+        headers = {
+            'accept': '*/*',
+            'Content-Type': 'application/json'
+            # 'Authorization': 'Bearer <token>'  # Add if needed
+        }
+
+        response = requests.post(url, data=payload, headers=headers)
+
+        if response.status_code in [200, 201]:
+            return "✅ Meeting scheduled successfully."
+        else:
+            print(f"❌ Failed with status {response.status_code}: {response.text}")
+            return None
+
+    except Exception as e:
+        print(f"❌ Error scheduling meeting: {e}")
+        return None
 
 
 # 🔹 Detect and Serialize Message Type (Ensures No Data Loss)
@@ -349,13 +448,15 @@ class Agent:
         graph.add_node("llm", self.call_openai)
         graph.add_node("action", self.take_action)
         graph.add_node("action_scheduler", self.take_action_scheduler)
+        graph.add_node("action_job_post", self.take_action_job_post)
         graph.add_node("llm1", self.call_openai1)
         # Conditional edges and flow control
         graph.add_conditional_edges(START, self.router, {'recruiter': "llm", 'job_post_maker': "job_poster", 'meeting_scheduler': "scheduler", 'general_questions':"general"})
         graph.add_conditional_edges("llm", self.exists_action, {'take_action': "action", False: END})
+        graph.add_conditional_edges("job_poster", self.exists_action_job_post, {'take_action': "action_job_post", False: END})
         graph.add_conditional_edges("scheduler", self.exists_action_scheduler, {'take_action': "action_scheduler", False: END})
         graph.add_edge("action_scheduler", "scheduler")
-        graph.add_edge("job_poster", END)
+        graph.add_edge("action_job_post", "job_poster")
         graph.add_edge("action", "llm1")
         graph.add_edge("llm1", END)
         graph.add_edge("general", END)
@@ -435,7 +536,7 @@ class Agent:
         messages = state['messages']
         if self.job_post_prompt:
             messages = [SystemMessage(content=self.job_post_prompt)] + messages
-            message = self.base_model.invoke(messages)
+            message = self.model.invoke(messages)
         return {'messages': [message], 'flow_state': 'start'}
     
     def call_scheduler(self, state: AgentState):
@@ -499,7 +600,7 @@ class Agent:
             result = self.tools[tool_name](*tool_args if isinstance(tool_args, list) else [tool_args])
             results.append(ToolMessage(tool_call_id=t['id'], name=tool_name, content=str(result)))
         print("Back to the model!")
-        return {'messages': results}
+        return {'messages': results, 'flow_state': 'start'}
    
     def call_openai1(self, state: AgentState):
         messages = state['messages']
@@ -556,8 +657,32 @@ class Agent:
             
         return {'messages': [message], 'flow_state': 'start'}
     
+    def exists_action_job_post(self, state: AgentState):
+        result = state['messages'][-1]
+        
+        if len(result.tool_calls) > 0:
+            state["flow_state"] = "create_job_post" 
+            return 'take_action'
+        
+        else: 
+            state["flow_state"] = ""
+            return False
+
+
+    def take_action_job_post(self, state: AgentState):
+        tool_calls = state['messages'][-1].tool_calls
+        results = []
+        for t in tool_calls:
+            tool_name = t['name']
+            tool_args = t['args']
+            print(f"Calling: {tool_name} with args: {tool_args}")
+            result = self.tools[tool_name](*tool_args if isinstance(tool_args, list) else [tool_args])
+            results.append(ToolMessage(tool_call_id=t['id'], name=tool_name, content=str(result)))
+        print("Back to the model!")
+        return {'messages': results, 'flow_state': 'start'}
     
-def get_response(user_input, state):
+    
+def get_response(employer_ID, user_input, state):
     # This function now has access to the full conversation history from state
     # Construct a response based on state messages
 
@@ -628,7 +753,7 @@ def get_response(user_input, state):
                         If unsure, unclear, or unable to match precisely, pay attention to previous sentences or context to make the best decision.
     ''' 
     
-    job_post_prompt = os.getenv('job_post_system_prompt')
+    job_post_prompt = f"employer id is {employer_ID} /n/n"+ os.getenv('job_post_system_prompt')
     scheduler_prompt = os.getenv('SCHEDULER_AGENT_PROMPT')
     general_prompt = os.getenv('General_AGENT_PROMPT')
 
@@ -640,7 +765,7 @@ def get_response(user_input, state):
                        temperature=0, 
                        api_key= os.getenv("OPENAI_API_KEY"))
     
-    tools = [search_candidate, calculate_free_times, schedule_meeting]
+    tools = [search_candidate, calculate_free_times, schedule_meeting, job_creator]
 
     # messages = conversation_history + [HumanMessage(content=user_input)]
     with SqliteSaver.from_conn_string(":memory:") as memory:
@@ -702,7 +827,7 @@ async def recruiting_endpoint(
 
 
         # Call your multi-agent system here
-        updated_agent_state = get_response(user_input, agent_state)
+        updated_agent_state = get_response(employer_id, user_input, agent_state)
 
         # Serialize new state
         serialized_state = {
