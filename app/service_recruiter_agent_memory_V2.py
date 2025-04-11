@@ -14,7 +14,6 @@ from langchain_community.embeddings import OpenAIEmbeddings
 from langchain_community.vectorstores import Chroma
 import hashlib
 import sys
-from sentence_transformers import SentenceTransformer
 import time
 from langgraph.graph import StateGraph, END, START
 from typing import TypedDict, Annotated, Required, Optional
@@ -24,7 +23,6 @@ from langchain_community.tools.tavily_search import TavilySearchResults
 from langgraph.checkpoint.sqlite import SqliteSaver
 from typing import TypedDict, Annotated
 from langchain_core.messages import AnyMessage, SystemMessage, HumanMessage, ToolMessage, AIMessage, messages_from_dict, messages_to_dict
-from langgraph.checkpoint.sqlite import SqliteSaver
 import requests
 import json
 import fastapi
@@ -49,11 +47,6 @@ import logging
 import os
 from datetime import datetime, timedelta
 import pytz
-from google.auth.transport.requests import Request
-from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
-from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError
 import requests
 import json
 from datetime import datetime
