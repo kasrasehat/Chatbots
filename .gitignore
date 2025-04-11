@@ -1,3 +1,22 @@
+# VSCode settings
+.vscode/
+
+# JetBrains (PyCharm, IntelliJ, etc.)
+.idea/
+
+# Gradio generated files
+.gradio/
+
+# Streamlit generated files
+.streamlit/
+
+# Local system files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Icon?
+Desktop.ini
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
