@@ -14,4 +14,4 @@ COPY . /app
 
 EXPOSE 8080
 
-CMD ["uvicorn", "app.service_recruiter_agent_memory_V2:app", "--host", "0.0.0.0", "--port", "8080", "--workers", "4"]
+CMD ["uvicorn", "app.service_recruiter_agent_memory_azure:app", "--host", "0.0.0.0", "--port", "8080", "--workers", "4"]
