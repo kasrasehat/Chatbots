@@ -6,7 +6,9 @@
 .spyderproject
 .spyproject
 .ropeproject
-
+.gradio/
+.streamlit/
+.ipynb_checkpoints/
 # ----------------------------
 # Python bytecode and cache
 # ----------------------------
@@ -28,7 +30,6 @@ ENV/
 env.bak/
 venv.bak/
 chatbot-venv/
-.chatbot-env/
 .chatbot-venv/
 
 # ----------------------------

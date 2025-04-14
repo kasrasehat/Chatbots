@@ -28,3 +28,19 @@ Thumbs.db
 # Ignore Docker build artifacts
 Dockerfile
 docker-compose.yml
+chatbot-venv/
+.chatbot-venv/
+.venv/
+env/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.git/
+.idea/
+.vscode/
+.gradio/
+.streamlit/
+.ipynb_checkpoints/
+*.log
+
